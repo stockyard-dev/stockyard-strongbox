@@ -1,56 +1,21 @@
 package store
-
-import (
-	"database/sql"
-	"fmt"
-	"os"
-	"path/filepath"
-
-	_ "modernc.org/sqlite"
-)
-
-type DB struct {
-	*sql.DB
-}
-
-func Open(dataDir string) (*DB, error) {
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, fmt.Errorf("mkdir: %w", err)
-	}
-	dsn := filepath.Join(dataDir, "strongbox.db") + "?_journal_mode=WAL&_busy_timeout=5000"
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("open: %w", err)
-	}
-	db.SetMaxOpenConns(1)
-	if err := migrate(db); err != nil {
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-	return &DB{db}, nil
-}
-
-func migrate(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS vaults (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-     );
-     CREATE TABLE IF NOT EXISTS secrets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vault_id INTEGER NOT NULL,
-        key TEXT NOT NULL,
-        value_encrypted TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-     );
-     CREATE TABLE IF NOT EXISTS tokens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vault_id INTEGER NOT NULL,
-        token TEXT NOT NULL UNIQUE,
-        expires_at DATETIME NOT NULL,
-        used_at DATETIME,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-     );`)
-	return err
-}
+import("crypto/aes";"crypto/cipher";"crypto/rand";"database/sql";"encoding/base64";"fmt";"io";"os";"path/filepath";"time";_ "modernc.org/sqlite")
+type DB struct{*sql.DB}
+type Vault struct{ID int64 `json:"id"`;Name string `json:"name"`;Description string `json:"description"`;SecretCount int `json:"secret_count,omitempty"`;CreatedAt time.Time `json:"created_at"`}
+type Secret struct{ID int64 `json:"id"`;VaultID int64 `json:"vault_id"`;Key string `json:"key"`;CreatedAt time.Time `json:"created_at"`;UpdatedAt time.Time `json:"updated_at"`}
+func Open(dataDir string)(*DB,error){if err:=os.MkdirAll(dataDir,0755);err!=nil{return nil,fmt.Errorf("mkdir: %w",err)};dsn:=filepath.Join(dataDir,"strongbox.db")+"?_journal_mode=WAL&_busy_timeout=5000";db,err:=sql.Open("sqlite",dsn);if err!=nil{return nil,fmt.Errorf("open: %w",err)};db.SetMaxOpenConns(1);if err:=migrate(db);err!=nil{return nil,fmt.Errorf("migrate: %w",err)};return &DB{db},nil}
+func migrate(db *sql.DB)error{_,err:=db.Exec(`CREATE TABLE IF NOT EXISTS vaults(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL UNIQUE,description TEXT DEFAULT '',created_at DATETIME DEFAULT CURRENT_TIMESTAMP);CREATE TABLE IF NOT EXISTS secrets(id INTEGER PRIMARY KEY AUTOINCREMENT,vault_id INTEGER NOT NULL,key TEXT NOT NULL,value_enc TEXT NOT NULL,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);CREATE UNIQUE INDEX IF NOT EXISTS idx_secrets_vault_key ON secrets(vault_id,key);`);return err}
+var encKey=func()[]byte{k:=make([]byte,32);copy(k,[]byte("stockyard-strongbox-default-key!"));return k}()
+func Encrypt(plain string)(string,error){block,err:=aes.NewCipher(encKey);if err!=nil{return"",err};gcm,err:=cipher.NewGCM(block);if err!=nil{return"",err};nonce:=make([]byte,gcm.NonceSize());if _,err=io.ReadFull(rand.Reader,nonce);err!=nil{return"",err};ct:=gcm.Seal(nonce,nonce,[]byte(plain),nil);return base64.StdEncoding.EncodeToString(ct),nil}
+func Decrypt(enc string)(string,error){data,err:=base64.StdEncoding.DecodeString(enc);if err!=nil{return"",err};block,err:=aes.NewCipher(encKey);if err!=nil{return"",err};gcm,err:=cipher.NewGCM(block);if err!=nil{return"",err};ns:=gcm.NonceSize();if len(data)<ns{return"",fmt.Errorf("short")};plain,err:=gcm.Open(nil,data[:ns],data[ns:],nil);if err!=nil{return"",err};return string(plain),nil}
+func(db *DB)ListVaults()([]Vault,error){rows,err:=db.Query(`SELECT v.id,v.name,v.description,COUNT(s.id),v.created_at FROM vaults v LEFT JOIN secrets s ON s.vault_id=v.id GROUP BY v.id ORDER BY v.created_at DESC`);if err!=nil{return nil,err};defer rows.Close();var out[]Vault;for rows.Next(){var v Vault;rows.Scan(&v.ID,&v.Name,&v.Description,&v.SecretCount,&v.CreatedAt);out=append(out,v)};return out,nil}
+func(db *DB)CreateVault(v *Vault)error{res,err:=db.Exec(`INSERT INTO vaults(name,description)VALUES(?,?)`,v.Name,v.Description);if err!=nil{return err};v.ID,_=res.LastInsertId();return nil}
+func(db *DB)DeleteVault(id int64)error{_,err:=db.Exec(`DELETE FROM vaults WHERE id=?`,id);return err}
+func(db *DB)ListSecrets(vaultID int64)([]Secret,error){rows,err:=db.Query(`SELECT id,vault_id,key,created_at,updated_at FROM secrets WHERE vault_id=? ORDER BY key`,vaultID);if err!=nil{return nil,err};defer rows.Close();var out[]Secret;for rows.Next(){var s Secret;rows.Scan(&s.ID,&s.VaultID,&s.Key,&s.CreatedAt,&s.UpdatedAt);out=append(out,s)};return out,nil}
+func(db *DB)UpsertSecret(vaultID int64,key,encVal string)error{_,err:=db.Exec(`INSERT INTO secrets(vault_id,key,value_enc)VALUES(?,?,?) ON CONFLICT(vault_id,key) DO UPDATE SET value_enc=excluded.value_enc,updated_at=CURRENT_TIMESTAMP`,vaultID,key,encVal);return err}
+func(db *DB)GetSecretValue(vaultID int64,key string)(string,error){var v string;err:=db.QueryRow(`SELECT value_enc FROM secrets WHERE vault_id=? AND key=?`,vaultID,key).Scan(&v);if err==sql.ErrNoRows{return"",nil};return v,err}
+func(db *DB)DeleteSecret(id int64)error{_,err:=db.Exec(`DELETE FROM secrets WHERE id=?`,id);return err}
+func(db *DB)CountVaults()(int,error){var n int;db.QueryRow(`SELECT COUNT(*) FROM vaults`).Scan(&n);return n,nil}
+func(db *DB)CountSecrets()(int,error){var n int;db.QueryRow(`SELECT COUNT(*) FROM secrets`).Scan(&n);return n,nil}
+func(db *DB)GetVault(id int64)(*Vault,error){v:=&Vault{};err:=db.QueryRow(`SELECT id,name,description,created_at FROM vaults WHERE id=?`,id).Scan(&v.ID,&v.Name,&v.Description,&v.CreatedAt);if err==sql.ErrNoRows{return nil,nil};return v,err}
+func(db *DB)GetAllSecrets(vaultID int64)(map[string]string,error){rows,err:=db.Query(`SELECT key,value_enc FROM secrets WHERE vault_id=?`,vaultID);if err!=nil{return nil,err};defer rows.Close();out:=map[string]string{};for rows.Next(){var k,v string;rows.Scan(&k,&v);plain,_:=Decrypt(v);out[k]=plain};return out,nil}
