@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  strongbox:
+    build: .
+    ports:
+      - "9070:9070"
+    environment:
+      - PORT=9070
+      - DATA_DIR=/data
+      - STRONGBOX_LICENSE_KEY=
+    volumes:
+      - strongbox_data:/data
+    restart: unless-stopped
+volumes:
+  strongbox_data:
