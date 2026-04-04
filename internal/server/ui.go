@@ -1,35 +1,53 @@
 package server
 import "net/http"
-func(s *Server)dashboard(w http.ResponseWriter,r *http.Request){w.Header().Set("Content-Type","text/html; charset=utf-8");w.Write([]byte(dashHTML))}
-const dashHTML=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Strongbox</title>
-<style>:root{--bg:#1a1410;--bg2:#241e18;--bg3:#2e261e;--rust:#c45d2c;--rl:#e8753a;--leather:#a0845c;--cream:#f0e6d3;--cd:#bfb5a3;--cm:#7a7060;--gold:#d4a843;--green:#4a9e5c;--red:#c44040;--mono:'JetBrains Mono',Consolas,monospace;--serif:'Libre Baskerville',Georgia,serif}*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--cream);font-family:var(--mono);font-size:13px;line-height:1.6}.hdr{padding:.6rem 1.2rem;border-bottom:1px solid var(--bg3);display:flex;justify-content:space-between;align-items:center}.hdr h1{font-family:var(--serif);font-size:1rem}.hdr h1 span{color:var(--rl)}.main{max-width:800px;margin:0 auto;padding:1rem}.btn{font-family:var(--mono);font-size:.68rem;padding:.3rem .6rem;border:1px solid;cursor:pointer;background:transparent}.btn-p{border-color:var(--rust);color:var(--rl)}.btn-p:hover{background:var(--rust);color:var(--cream)}.btn-d{border-color:var(--bg3);color:var(--cm)}.overview{display:flex;gap:1.5rem;margin-bottom:1rem;font-size:.7rem;color:var(--leather)}.overview .stat b{display:block;font-size:1.2rem;color:var(--cream)}.toolbar{display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center}.toolbar select{background:var(--bg);border:1px solid var(--bg3);color:var(--cream);padding:.3rem .5rem;font-family:var(--mono);font-size:.72rem;outline:none}.sec-row{display:flex;align-items:center;gap:.5rem;padding:.4rem .5rem;border-bottom:1px solid var(--bg3);font-size:.75rem}.sec-name{font-weight:600;flex:1}.sec-val{color:var(--cm);font-style:italic;cursor:pointer}.sec-val.revealed{color:var(--cd);font-style:normal}.sec-env{font-size:.6rem;padding:.05rem .25rem;background:var(--bg3);color:var(--ll);border-radius:2px}.sec-ver{font-size:.6rem;color:var(--cm)}.tabs{display:flex;gap:0;margin-bottom:1rem;border-bottom:1px solid var(--bg3)}.tab{padding:.4rem 1rem;cursor:pointer;font-size:.75rem;color:var(--cm);border-bottom:2px solid transparent}.tab:hover{color:var(--cream)}.tab.active{color:var(--rl);border-bottom-color:var(--rl)}.audit-row{font-size:.72rem;padding:.25rem .5rem;border-bottom:1px solid var(--bg3);display:flex;gap:.5rem}.act-created{color:var(--green)}.act-updated{color:var(--gold)}.act-deleted{color:var(--red)}.empty{text-align:center;padding:2rem;color:var(--cm);font-style:italic;font-family:var(--serif)}.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:100}.modal{background:var(--bg2);border:1px solid var(--bg3);padding:1.5rem;width:90%;max-width:500px}.modal h2{font-family:var(--serif);font-size:.9rem;margin-bottom:1rem}label.fl{display:block;font-size:.65rem;color:var(--leather);text-transform:uppercase;letter-spacing:1px;margin-bottom:.2rem;margin-top:.5rem}input[type=text],textarea,select{background:var(--bg);border:1px solid var(--bg3);color:var(--cream);padding:.35rem .5rem;font-family:var(--mono);font-size:.78rem;width:100%;outline:none}textarea{resize:vertical;min-height:60px}</style>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital@0;1&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-</head><body><div class="hdr"><h1><span>Strongbox</span></h1><button class="btn btn-p" onclick="showNew()">+ Secret</button></div>
-<div class="main"><div id="upgrade-banner" style="display:none;background:#241e18;border:1px solid #8b3d1a;border-left:3px solid #c45d2c;padding:.6rem 1rem;font-size:.78rem;color:#bfb5a3;margin-bottom:.8rem"><strong style="color:#f0e6d3">Free tier</strong> — 10 items max. <a href="https://stockyard.dev/strongbox/" target="_blank" style="color:#e8753a">Upgrade to Pro →</a></div><div class="overview" id="ov"></div>
-<div class="tabs"><div class="tab active" data-tab="secrets" onclick="switchTab('secrets')">Secrets</div><div class="tab" data-tab="audit" onclick="switchTab('audit')">Audit Log</div></div>
-<div id="pane-secrets"><div class="toolbar"><select id="envFilter" onchange="load()"><option value="">All environments</option></select><span style="flex:1"></span><span style="font-size:.65rem;color:var(--cm)">Values encrypted at rest (AES-256-GCM)</span></div><div id="list"></div></div>
-<div id="pane-audit" style="display:none"><div id="auditList"></div></div>
-</div><div id="modal"></div>
+func(s *Server)dashboard(w http.ResponseWriter,r *http.Request){w.Header().Set("Content-Type","text/html");w.Write([]byte(dashHTML))}
+const dashHTML=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Strongbox</title>
+<style>:root{--bg:#1a1410;--bg2:#241e18;--bg3:#2e261e;--rust:#e8753a;--leather:#a0845c;--cream:#f0e6d3;--cd:#bfb5a3;--cm:#7a7060;--gold:#d4a843;--green:#4a9e5c;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--cream);font-family:var(--mono);line-height:1.5}
+.hdr{padding:1rem 1.5rem;border-bottom:1px solid var(--bg3);display:flex;justify-content:space-between;align-items:center}.hdr h1{font-size:.9rem;letter-spacing:2px}
+.main{padding:1.5rem;max-width:900px;margin:0 auto}
+.env-bar{display:flex;gap:.3rem;margin-bottom:1rem}
+.env-btn{font-size:.6rem;padding:.25rem .6rem;border:1px solid var(--bg3);background:var(--bg);color:var(--cm);cursor:pointer}.env-btn:hover{border-color:var(--leather)}.env-btn.active{border-color:var(--gold);color:var(--gold)}
+.secret{background:var(--bg2);border:1px solid var(--bg3);padding:.7rem 1rem;margin-bottom:.4rem;display:flex;justify-content:space-between;align-items:center}
+.secret-name{font-size:.8rem;color:var(--cream)}
+.secret-meta{font-size:.6rem;color:var(--cm);margin-top:.1rem}
+.secret-val{font-family:var(--mono);font-size:.7rem;color:var(--cm);background:var(--bg);padding:.2rem .4rem;border:1px solid var(--bg3);cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secret-val:hover{color:var(--cream)}
+.btn{font-size:.6rem;padding:.2rem .5rem;cursor:pointer;border:1px solid var(--bg3);background:var(--bg);color:var(--cd)}.btn:hover{border-color:var(--leather);color:var(--cream)}
+.btn-p{background:var(--rust);border-color:var(--rust);color:var(--bg)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:center;justify-content:center}.modal-bg.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--bg3);padding:1.5rem;width:400px;max-width:90vw}
+.modal h2{font-size:.8rem;margin-bottom:1rem;color:var(--rust)}
+.fr{margin-bottom:.5rem}.fr label{display:block;font-size:.55rem;color:var(--cm);text-transform:uppercase;letter-spacing:1px;margin-bottom:.15rem}
+.fr input,.fr select,.fr textarea{width:100%;padding:.35rem .5rem;background:var(--bg);border:1px solid var(--bg3);color:var(--cream);font-family:var(--mono);font-size:.7rem}
+.acts{display:flex;gap:.4rem;justify-content:flex-end;margin-top:.8rem}
+.empty{text-align:center;padding:3rem;color:var(--cm);font-style:italic;font-size:.75rem}
+</style></head><body>
+<div class="hdr"><h1>STRONGBOX</h1><button class="btn btn-p" onclick="openForm()">+ Add Secret</button></div>
+<div class="main">
+<div class="env-bar" id="envs"></div>
+<div id="secrets"></div>
+</div>
+<div class="modal-bg" id="mbg" onclick="if(event.target===this)cm()"><div class="modal" id="mdl"></div></div>
 <script>
-async function api(u,o){return(await fetch(u,o)).json()}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-function timeAgo(d){if(!d)return'';const s=Math.floor((Date.now()-new Date(d))/1e3);if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';return Math.floor(s/3600)+'h ago'}
-async function init(){const[sd,ed]=await Promise.all([api('/api/stats'),api('/api/environments')]);
-document.getElementById('ov').innerHTML='<div class="stat"><b>'+sd.secrets+'</b>Secrets</div><div class="stat"><b>'+sd.environments+'</b>Environments</div>';
-const sel=document.getElementById('envFilter');sel.innerHTML='<option value="">All</option>'+((ed.environments||[]).map(e=>'<option>'+esc(e)+'</option>').join(''));load()}
-async function load(){const env=document.getElementById('envFilter').value;const p=env?'?environment='+env:'';
-const d=await api('/api/secrets'+p);const secs=d.secrets||[];
-document.getElementById('list').innerHTML=secs.length?secs.map(s=>
-'<div class="sec-row"><span class="sec-name">'+esc(s.name)+'</span><span class="sec-val" onclick="reveal(\''+s.id+'\',this)">'+esc(s.value)+'</span><span class="sec-env">'+esc(s.environment)+'</span><span class="sec-ver">v'+s.version+'</span><span style="cursor:pointer;font-size:.55rem;color:var(--cm)" onclick="del(\''+s.id+'\')">del</span></div>'
-).join(''):'<div class="empty">No secrets yet. Values are encrypted with AES-256-GCM.</div>'}
-async function reveal(id,el){if(el.classList.contains('revealed')){el.textContent='••••••••';el.classList.remove('revealed');return}
-const s=await api('/api/secrets/'+id);el.textContent=s.value;el.classList.add('revealed')}
-async function del(id){if(!confirm('Delete?'))return;await api('/api/secrets/'+id,{method:'DELETE'});load();init()}
-function showNew(){document.getElementById('modal').innerHTML='<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal"><h2>Set Secret</h2><label class="fl">Name</label><input type="text" id="ns-name" placeholder="DATABASE_URL"><label class="fl">Value</label><textarea id="ns-val" rows="2" placeholder="postgres://..."></textarea><label class="fl">Environment</label><input type="text" id="ns-env" value="default"><label class="fl">Description</label><input type="text" id="ns-desc"><div style="display:flex;gap:.5rem;margin-top:1rem"><button class="btn btn-p" onclick="save()">Set</button><button class="btn btn-d" onclick="closeModal()">Cancel</button></div></div></div>'}
-async function save(){const b={name:document.getElementById('ns-name').value,value:document.getElementById('ns-val').value,environment:document.getElementById('ns-env').value||'default',description:document.getElementById('ns-desc').value};if(!b.name){alert('Name required');return};await api('/api/secrets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});closeModal();load();init()}
-async function loadAudit(){const d=await api('/api/audit');document.getElementById('auditList').innerHTML=(d.audit||[]).map(a=>'<div class="audit-row"><span class="act-'+a.action+'" style="width:60px;font-weight:600">'+a.action+'</span><span style="flex:1;font-weight:600">'+esc(a.secret_name)+'</span><span style="color:var(--cm)">'+esc(a.actor||'-')+' · '+timeAgo(a.created_at)+'</span></div>').join('')||'<div class="empty">No audit entries.</div>'}
-function switchTab(t){document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));document.getElementById('pane-secrets').style.display=t==='secrets'?'':'none';document.getElementById('pane-audit').style.display=t==='audit'?'':'none';if(t==='audit')loadAudit()}
-function closeModal(){document.getElementById('modal').innerHTML=''}
-init()
-fetch('/api/tier').then(r=>r.json()).then(j=>{if(j.tier==='free'){var b=document.getElementById('upgrade-banner');if(b)b.style.display='block'}}).catch(()=>{var b=document.getElementById('upgrade-banner');if(b)b.style.display='block'});
+const A='/api';let secrets=[],filterEnv='';
+async function load(){const r=await fetch(A+'/secrets').then(r=>r.json());secrets=r.secrets||[];
+const envs=[...new Set(secrets.map(s=>s.environment).filter(e=>e))];
+let h='<button class="env-btn'+(filterEnv===''?' active':'')+'" onclick="setEnv(\'\')">All ('+secrets.length+')</button>';
+envs.forEach(e=>{const c=secrets.filter(s=>s.environment===e).length;h+='<button class="env-btn'+(filterEnv===e?' active':'')+'" onclick="setEnv(\''+e+'\')">'+esc(e)+' ('+c+')</button>';});
+document.getElementById('envs').innerHTML=h;render();}
+function setEnv(e){filterEnv=e;load();}
+function render(){let filtered=filterEnv?secrets.filter(s=>s.environment===filterEnv):secrets;
+if(!filtered.length){document.getElementById('secrets').innerHTML='<div class="empty">No secrets stored.</div>';return;}
+let h='';filtered.forEach(s=>{
+const masked='•'.repeat(Math.min(s.value.length,20))||'(empty)';
+h+='<div class="secret"><div><div class="secret-name">'+esc(s.name)+'</div><div class="secret-meta">v'+s.version+' · '+esc(s.environment)+(s.description?' · '+esc(s.description):'')+'</div></div><div style="display:flex;gap:.4rem;align-items:center"><span class="secret-val" onclick="reveal(this,\''+esc(s.value)+'\')">'+masked+'</span><button class="btn" onclick="del(\''+s.id+'\')" style="color:var(--cm)">✕</button></div></div>';});
+document.getElementById('secrets').innerHTML=h;}
+function reveal(el,val){if(el.dataset.revealed){el.textContent='•'.repeat(val.length);el.dataset.revealed=''}else{el.textContent=val;el.dataset.revealed='1'}}
+async function del(id){if(confirm('Delete?')){await fetch(A+'/secrets/'+id,{method:'DELETE'});load();}}
+function openForm(){document.getElementById('mdl').innerHTML='<h2>Add Secret</h2><div class="fr"><label>Name</label><input id="f-n" placeholder="e.g. DATABASE_URL"></div><div class="fr"><label>Value</label><textarea id="f-v" rows="3" placeholder="secret value"></textarea></div><div class="fr"><label>Environment</label><input id="f-e" value="default" placeholder="default, staging, production"></div><div class="fr"><label>Description</label><input id="f-d" placeholder="optional note"></div><div class="acts"><button class="btn" onclick="cm()">Cancel</button><button class="btn btn-p" onclick="sub()">Store</button></div>';document.getElementById('mbg').classList.add('open');}
+async function sub(){await fetch(A+'/secrets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('f-n').value,value:document.getElementById('f-v').value,environment:document.getElementById('f-e').value,description:document.getElementById('f-d').value})});cm();load();}
+function cm(){document.getElementById('mbg').classList.remove('open');}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+load();
 </script></body></html>`
